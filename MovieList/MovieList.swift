@@ -52,7 +52,3 @@ struct Movie: Codable, Hashable {
     }
 }
 
-//enum OriginalLanguage: String, Codable {
-//    case en = "en"
-//}
-
