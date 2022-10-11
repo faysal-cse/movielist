@@ -15,6 +15,8 @@ class MoviesViewModel: ObservableObject {
     private var task: AnyCancellable?
             
     @Published var movieList: [Movie] = [Movie]()
+    @Published var movieListObj: Movielist = Movielist(page: 0, movies: [], totalPages: 0, totalResults: 0)
+    
     @Published var totalPage: Int = 0
     @Published var currentIndex = 1
     
@@ -26,24 +28,17 @@ class MoviesViewModel: ObservableObject {
         if let urlString = (url + query + "&page=\(page)").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
             if let url = URL(string: urlString.lowercased()) {
                 
-                URLSession.shared.dataTask(with: url) { data, response, error in
-                  if let data = data {
-                     do {
-                       let movieList = try JSONDecoder().decode(Movielist.self, from: data)
-                         
-                         DispatchQueue.main.async {
-                             self.totalPage = movieList.totalPages
-                             let oldData = self.movieList
-                             self.movieList = oldData + movieList.movies
-                         }
-                         
-                     } catch let error {
-                         print(error.localizedDescription)
-                     }
-                  } else {
-                      print(error?.localizedDescription ?? "")
-                  }
-                }.resume()
+                task = URLSession.shared.dataTaskPublisher(for: url)
+                    .map { $0.data}
+                    .decode(type: Movielist.self, decoder: JSONDecoder())
+                    .replaceError(with: Movielist(page: 0, movies: [], totalPages: 0, totalResults: 0))
+                    .eraseToAnyPublisher()
+                    .receive(on: RunLoop.main)
+                    .handleEvents(receiveOutput: { response in
+                        self.movieList = self.movieList + response.movies
+                        self.totalPage = response.totalPages
+                    })
+                    .assign(to: \MoviesViewModel.movieListObj, on: self)
                 
             }
         }
